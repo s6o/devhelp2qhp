@@ -1,0 +1,201 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Transform a gtk-doc .devhelp2 file to a .qhp (Qt Project Help) file.
+
+The .qhp file can be run through the qhelpgenerator utility part of the Qt
+toolkit to create a compressed html help file .qch that can provide context
+sensitive help in the Qt Creator IDE.
+
+TODO:
+- fix xmlns handling in .devhelp2 files, currently needs to be deleted manually
+- command-line argument support to manage .qhp files 
+
+MIT license
+-----------
+Copyright (C) 2013 Oliver Sõro <oliver.s6ro@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+"""
+import argparse
+import os
+import xml.etree.ElementTree as ET
+
+
+def init_qhp_file(namespace, filter_key, filter_version, title, index_file):
+	"""Initialize a .qhp template as an ElementTree class instance.
+
+	Arguments:
+	namespace		-- the .qhp namespace e.g. org.gnome.developer.gobject
+	filter_key		-- filter name for the help file e.g. gobject
+	filter_version	-- usually the software package version for which .qhp is created
+	title			-- the title of the help package to be created
+	index_file		-- the main index file of the help file e.g. index.html
+
+	Return an instance of ElementTree.
+
+	"""
+	template = """
+<QtHelpProject version="1.0">
+	<namespace>help_namespace</namespace>
+	<virtualFolder>doc</virtualFolder>
+	<customFilter name="help_title">
+		<filterAttribute>filter_key</filterAttribute>
+		<filterAttribute>filter_version</filterAttribute>
+	</customFilter>
+	<filterSection>
+		<filterAttribute>filter_key</filterAttribute>
+		<filterAttribute>filter_version</filterAttribute>
+		<toc>
+			<section title="help_title" ref="index.html">
+			</section>
+		</toc>
+		<keywords>
+		</keywords>
+		<files>
+			<file>*.css</file>
+			<file>*.gif</file>
+			<file>*.html</file>
+			<file>*.png</file>
+		</files>
+	</filterSection>
+</QtHelpProject>
+	"""
+	qhp = ET.XML(template)
+	qhp.find('namespace').text = namespace
+	qhp.find('customFilter').set('name', title)
+	qhp.find('filterSection/toc/section').set('title', title)
+	qhp.find('filterSection/toc/section').set('ref', index_file)
+
+	for filter in qhp.findall('.//filterAttribute'):
+		if filter.text == 'filter_key':
+			filter.text = filter_key
+		elif filter.text == 'filter_version':
+			filter.text = filter_version
+
+	et = ET.ElementTree(qhp)
+
+	return et
+
+
+def init_devhelp_file(path):
+	"""Initialize the specified .devhelp2 file as an instance of ElementTree.
+
+	Arguments:
+	path	-- the path and/or name of the .devhelp2 file
+
+	Return an instance of ElementTree.
+
+	"""
+	et = ET.parse(path)
+	return et
+
+
+def transform_subs_to_sections(qhp, devhelp):
+	"""Transform the sub elements from .devhelp2 to section elements in .qhp.
+
+	Arguments:
+	qhp		-- an ElementTree instance of a .qhp file
+	devhelp	-- an ElementTree instance of a .devhelp2 file
+
+	Return nothing.
+
+	"""
+	parent_stack = []
+	section_root = qhp.getroot().find('filterSection/toc/section')
+	parent = section_root
+
+	for sub in devhelp.getroot().findall(".//sub"):
+		children = len(list(sub))
+		section = ET.SubElement(parent, 'section', {'title' : sub.get('name'), 'ref' : sub.get('link')})
+		section.tail = os.linesep
+	
+		if len(parent_stack) > 0:
+			# get current pair
+			current_pair = parent_stack[-1]
+
+			# mark a child as processed by decrementing children count
+			current_pair[1] = current_pair[1] - 1
+
+			if current_pair[1] == 0:
+				# all children have been processed, move up in parent_stack
+				del parent_stack[-1]
+				if len(parent_stack) > 0:
+					parent = parent_stack[-1][0]
+				else:
+					parent = section_root
+	
+		if children > 0:
+			# add a new pair into parent_stack, set new parent section
+			pair = [section, children]
+			parent_stack.append(pair)
+			parent = section
+	# for end
+
+
+def transform_keywords(qhp, devhelp):
+	"""Transform keyword elements from .devhelp2 to similar elements in .qhp.
+
+	Arguments:
+	qhp		-- an ElementTree instance of a .qhp file
+	devhelp	-- an ElementTree instance of a .devhelp2 file
+
+	Return nothing.
+
+	"""
+	parent = qhp.getroot().find('filterSection/keywords')
+
+	for kw in devhelp.getroot().findall(".//keyword"):
+		name = kw.get('name').rstrip(' ()')
+		keyword = ET.SubElement(parent, 'keyword', {'name' : name, 'id' : name, 'ref' : kw.get('link')})
+		keyword.tail = os.linesep
+
+
+def main():
+	"""Parse a .devhelp2 file and generate .qhp (Qt Help Project) file.
+	Return nothing.
+	"""
+	argp = argparse.ArgumentParser()
+	argp.add_argument('devhelp', help='path and/or name of the devhelp file')
+	argp.add_argument('qhp', help='path and/or name of the qhp file to be created')
+	argp.add_argument('qns', help='the qhp namespace e.g. org.gnome.developer.gobject')
+	argp.add_argument('--version', help='override software version string, the devhelp file may only list the major number')
+	args = argp.parse_args()
+
+	devhelp = init_devhelp_file(args.devhelp)
+	title = devhelp.getroot().get('title')
+	index_file = devhelp.getroot().get('link')
+
+	filter_key = devhelp.getroot().get('name')
+	filter_version = devhelp.getroot().get('version')
+	if args.version:
+		filter_version = args.version
+
+	namespace = ''.join([args.qns, '.', filter_version])
+
+	qhp = init_qhp_file(namespace, filter_key, filter_version, title, index_file)
+
+	transform_subs_to_sections(qhp, devhelp)
+	transform_keywords(qhp, devhelp)
+
+	qhp.write(args.qhp, 'UTF-8', True)
+
+
+if __name__ == '__main__':
+	main()
