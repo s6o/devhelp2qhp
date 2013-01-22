@@ -163,8 +163,9 @@ def transform_keywords(qhp, devhelp):
 
 	for kw in devhelp.getroot().findall(".//keyword"):
 		name = kw.get('name').rstrip(' ()')
-		keyword = ET.SubElement(parent, 'keyword', {'name' : name, 'id' : name, 'ref' : kw.get('link')})
-		keyword.tail = os.linesep
+		if len(name) > 0:
+			keyword = ET.SubElement(parent, 'keyword', {'name' : name, 'id' : name, 'ref' : kw.get('link')})
+			keyword.tail = os.linesep
 
 
 def main():
