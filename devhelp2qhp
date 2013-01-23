@@ -181,6 +181,10 @@ def transform_keywords(qhp, devhelp):
 
 	for kw in devhelp.getroot().findall(''.join(['.//', nsp, 'keyword'])):
 		name = kw.get('name').rstrip(' ()')
+		if name.startswith('enum '):
+			name = name[5:]
+		if name.startswith('struct '):
+			name = name[7:]
 		if len(name) > 0:
 			keyword = ET.SubElement(parent, 'keyword', {'name' : name, 'id' : name, 'ref' : kw.get('link')})
 			keyword.tail = os.linesep
