@@ -7,7 +7,6 @@ toolkit to create a compressed html help file .qch that can provide context
 sensitive help in the Qt Creator IDE.
 
 TODO:
-- fix xmlns handling in .devhelp2 files, currently needs to be deleted manually
 - command-line argument support to manage .qhp files 
 
 MIT license
@@ -95,6 +94,22 @@ def init_qhp_file(namespace, filter_key, filter_version, title, index_file):
 	return et
 
 
+def get_namespace_prefix(devhelp):
+	"""Get the xmlns value if set i.e. the namespace prefix.
+
+	Arguments:
+	devhelp	-- an ElementTree instance of a .devhelp2 file
+
+	Returns the namespace prefix string e.g. {http://www.devhelp.net/book}
+
+	"""
+	nsp = ''
+	if devhelp.getroot().tag[0] == '{':
+		nsp = devhelp.getroot().tag[1:].split('}')[0]
+		nsp = ''.join(['{', nsp, '}'])
+	return nsp
+
+
 def init_devhelp_file(path):
 	"""Initialize the specified .devhelp2 file as an instance of ElementTree.
 
@@ -121,8 +136,9 @@ def transform_subs_to_sections(qhp, devhelp):
 	parent_stack = []
 	section_root = qhp.getroot().find('filterSection/toc/section')
 	parent = section_root
+	nsp = get_namespace_prefix(devhelp)
 
-	for sub in devhelp.getroot().findall(".//sub"):
+	for sub in devhelp.getroot().findall(''.join(['.//', nsp, 'sub'])):
 		children = len(list(sub))
 		section = ET.SubElement(parent, 'section', {'title' : sub.get('name'), 'ref' : sub.get('link')})
 		section.tail = os.linesep
@@ -161,8 +177,9 @@ def transform_keywords(qhp, devhelp):
 
 	"""
 	parent = qhp.getroot().find('filterSection/keywords')
+	nsp = get_namespace_prefix(devhelp)
 
-	for kw in devhelp.getroot().findall(".//keyword"):
+	for kw in devhelp.getroot().findall(''.join(['.//', nsp, 'keyword'])):
 		name = kw.get('name').rstrip(' ()')
 		if len(name) > 0:
 			keyword = ET.SubElement(parent, 'keyword', {'name' : name, 'id' : name, 'ref' : kw.get('link')})
