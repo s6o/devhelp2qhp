@@ -79,6 +79,7 @@ def init_qhp_file(namespace, filter_key, filter_version, title, index_file):
 	"""
 	qhp = ET.XML(template)
 	qhp.find('namespace').text = namespace
+	qhp.find('virtualFolder').text = filter_key
 	qhp.find('customFilter').set('name', title)
 	qhp.find('filterSection/toc/section').set('title', title)
 	qhp.find('filterSection/toc/section').set('ref', index_file)
