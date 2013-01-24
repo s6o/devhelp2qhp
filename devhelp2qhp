@@ -196,12 +196,12 @@ def main():
 	"""
 	argp = argparse.ArgumentParser()
 	argp.add_argument('devhelp', help='path and/or name of the devhelp file')
-	argp.add_argument('qhp', help='path and/or name of the qhp file to be created')
 	argp.add_argument('qns', help='the qhp namespace e.g. org.gnome.developer.gobject')
 	argp.add_argument('version', help='version of the software for which help is generated')
 	args = argp.parse_args()
 
 	devhelp = init_devhelp_file(args.devhelp)
+	devhelp_file, devhlep_ext = os.path.splitext(args.devhelp)
 	title = devhelp.getroot().get('title')
 	index_file = devhelp.getroot().get('link')
 
@@ -215,7 +215,7 @@ def main():
 	transform_subs_to_sections(qhp, devhelp)
 	transform_keywords(qhp, devhelp)
 
-	qhp.write(args.qhp, 'UTF-8', True)
+	qhp.write(''.join([devhelp_file, '.qhp']), 'UTF-8', True)
 
 
 if __name__ == '__main__':
