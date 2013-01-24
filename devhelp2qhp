@@ -6,9 +6,6 @@ The .qhp file can be run through the qhelpgenerator utility part of the Qt
 toolkit to create a compressed html help file .qch that can provide context
 sensitive help in the Qt Creator IDE.
 
-TODO:
-- command-line argument support to manage .qhp files 
-
 MIT license
 -----------
 Copyright (C) 2013 Oliver Sõro <oliver.s6ro@gmail.com>
@@ -33,6 +30,7 @@ SOFTWARE.
 
 """
 import argparse
+import glob
 import os
 import sys
 import xml.etree.ElementTree as ET
@@ -68,12 +66,7 @@ def init_qhp_file(namespace, filter_key, filter_version, title, index_file):
 		</toc>
 		<keywords>
 		</keywords>
-		<files>
-			<file>*.css</file>
-			<file>*.gif</file>
-			<file>*.html</file>
-			<file>*.png</file>
-		</files>
+		<files></files>
 	</filterSection>
 </QtHelpProject>
 	"""
@@ -122,6 +115,42 @@ def init_devhelp_file(path):
 	"""
 	et = ET.parse(path)
 	return et
+
+
+def collect_file_entries(qhp, directory):
+	"""Create the file elements with glob expressions for qhp from a predefined
+	extension list.
+
+	Extensions that are checked for:
+	- .css
+	- .gif
+	- .html
+	- .jpg
+	- .png
+
+	Arguments:
+	qhp			-- an ElementTree instance of a .qhp file
+	directory	-- the directory where the .devhelp2 file is located 
+
+	Return nothing.
+
+	"""
+	files_element = qhp.getroot().find('filterSection/files')
+	exts = [
+		'*.css'
+		, '*.gif'
+		, '*.html'
+		, '*.jpg'
+		, '*.jpeg'
+		, '*.png'
+	]
+	for e in exts:
+		if len(glob.glob(os.path.join(directory, e))) > 0:
+			file = ET.SubElement(files_element, 'file')
+			file.text = e
+		if len(glob.glob(os.path.join(directory, e.upper()))) > 0:
+			file = ET.SubElement(files_element, 'file')
+			file.text = e.upper()
 
 
 def transform_subs_to_sections(qhp, devhelp):
@@ -219,6 +248,7 @@ def main():
 
 	transform_subs_to_sections(qhp, devhelp)
 	transform_keywords(qhp, devhelp)
+	collect_file_entries(qhp, os.path.dirname(devhelp_file))
 
 	qhp.write(''.join([devhelp_file, '.qhp']), 'UTF-8', True)
 
