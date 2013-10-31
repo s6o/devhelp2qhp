@@ -20,10 +20,17 @@ writing this http://developer.gnome.org/gobject/gobject-html-2.34.3.tar.gz)
 Extract the archive and cd into the directory containing the documentation.
 
 Do get devhelp2qhp usage help
+```
     $> devhelp2qhp -h
+```
 
 Do generate a .qhp file
+```
     $> devhelp2qhp gobject.devhelp2 org.gnome.developer.gobject 2.34.3
+```
 
 The gobject.qhp will be created in the same directory. To compile the .qch
+```
     $> qhelpgenerator gobject.qhp -o gobject-2.34.3.qch
+```
+
